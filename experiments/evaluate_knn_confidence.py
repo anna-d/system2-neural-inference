@@ -3,8 +3,8 @@ import time
 import torch
 import torch.nn.functional as F
 
-from src.models import CIFAR10CNN
-from src.utils.data import get_cifar10_loaders
+from src.models import CNNClassifier
+from src.utils.data import SUPPORTED_DATASETS, get_data_loaders, get_dataset_spec
 
 
 @torch.no_grad()
@@ -31,25 +31,17 @@ def build_feature_bank(model, dataloader, device):
 
 @torch.no_grad()
 def knn_predict(query_features, feature_bank, label_bank, k=5, batch_size=256):
-    """
-    Επιστρέφει predicted labels με kNN πάνω στα feature vectors.
-    """
     preds_all = []
-
     num_queries = query_features.size(0)
 
     for start in range(0, num_queries, batch_size):
         end = min(start + batch_size, num_queries)
         q = query_features[start:end]
 
-        # Ευκλείδεια απόσταση
-        dists = torch.cdist(q, feature_bank)  # [batch_q, num_bank]
+        dists = torch.cdist(q, feature_bank)
+        _, knn_indices = torch.topk(dists, k=k, largest=False, dim=1)
+        knn_labels = label_bank[knn_indices]
 
-        # k κοντινότεροι
-        knn_dists, knn_indices = torch.topk(dists, k=k, largest=False, dim=1)
-        knn_labels = label_bank[knn_indices]  # [batch_q, k]
-
-        # Majority vote
         batch_preds = []
         for row in knn_labels:
             values, counts = torch.unique(row, return_counts=True)
@@ -70,7 +62,7 @@ def evaluate_cnn_and_knn_confidence(
     label_bank,
     device,
     threshold=0.6,
-    k=5
+    k=5,
 ):
     model.eval()
 
@@ -108,7 +100,7 @@ def evaluate_cnn_and_knn_confidence(
                 uncertain_feats,
                 feature_bank,
                 label_bank,
-                k=k
+                k=k,
             )
 
             uncertain_total += uncertain_labels.size(0)
@@ -116,10 +108,7 @@ def evaluate_cnn_and_knn_confidence(
             uncertain_knn_correct += knn_preds.eq(uncertain_labels).sum().item()
             uncertain_agree += knn_preds.eq(uncertain_cnn_preds).sum().item()
 
-            # Πόσες φορές το kNN "διορθώνει" λάθος του CNN
             corrected_cases += ((uncertain_cnn_preds != uncertain_labels) & (knn_preds == uncertain_labels)).sum().item()
-
-            # Πόσες φορές το kNN χαλάει σωστή πρόβλεψη του CNN
             worsened_cases += ((uncertain_cnn_preds == uncertain_labels) & (knn_preds != uncertain_labels)).sum().item()
 
     baseline_acc = cnn_correct / total if total > 0 else 0.0
@@ -142,21 +131,38 @@ def evaluate_cnn_and_knn_confidence(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate CNN + kNN confidence checking on CIFAR-10")
-    parser.add_argument("--weights", type=str, default="cnn_cifar10.pth", help="Path to trained model weights")
+    parser = argparse.ArgumentParser(
+        description="Evaluate CNN + kNN confidence checking on CIFAR-10, CIFAR-100, or SVHN"
+    )
+    parser.add_argument("--dataset", type=str, default="cifar10", choices=SUPPORTED_DATASETS)
+    parser.add_argument("--weights", type=str, default=None, help="Path to trained model weights")
     parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden dimension used by the trained model")
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--threshold", type=float, default=0.6, help="Confidence threshold for uncertain samples")
     parser.add_argument("--k", type=int, default=5, help="Number of nearest neighbors")
+    parser.add_argument("--data-root", type=str, default="data")
+    parser.add_argument("--num-workers", type=int, default=0)
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    spec = get_dataset_spec(args.dataset)
+    weights = args.weights or f"artifacts/cnn_{spec.name}.pth"
     print("Using device:", device)
+    print(f"Dataset: {spec.name} ({spec.num_classes} classes)")
 
-    train_loader, test_loader, _, _ = get_cifar10_loaders(batch_size=args.batch_size)
+    train_loader, test_loader, _, _ = get_data_loaders(
+        dataset_name=args.dataset,
+        batch_size=args.batch_size,
+        root=args.data_root,
+        num_workers=args.num_workers,
+    )
 
-    model = CIFAR10CNN(hidden_dim=args.hidden_dim).to(device)
-    state_dict = torch.load(args.weights, map_location=device)
+    model = CNNClassifier(
+        hidden_dim=args.hidden_dim,
+        num_classes=spec.num_classes,
+        input_channels=spec.input_channels,
+    ).to(device)
+    state_dict = torch.load(weights, map_location=device)
     model.load_state_dict(state_dict)
     model.eval()
 
@@ -177,7 +183,7 @@ def main():
         label_bank=label_bank,
         device=device,
         threshold=args.threshold,
-        k=args.k
+        k=args.k,
     )
     eval_time = time.time() - start
 

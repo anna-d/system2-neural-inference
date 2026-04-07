@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.models import CIFAR10CNN
-from src.utils.data import get_cifar10_loaders
+from src.models import CNNClassifier
+from src.utils.data import SUPPORTED_DATASETS, get_data_loaders, get_dataset_spec
 from src.utils.train_utils import evaluate
 from src.utils.tta import predict_with_tta
 
@@ -48,8 +48,6 @@ def evaluate_tta(model, loader, criterion, device=torch.device("cpu")):
         images, labels = images.to(device), labels.to(device)
 
         avg_probs, preds = predict_with_tta(model, images)
-
-        # CrossEntropyLoss περιμένει logits, οπότε εδώ χρησιμοποιούμε NLLLoss λογική
         loss = F.nll_loss(torch.log(avg_probs.clamp_min(1e-12)), labels)
 
         running_loss += loss.item() * images.size(0)
@@ -61,12 +59,13 @@ def evaluate_tta(model, loader, criterion, device=torch.device("cpu")):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Evaluate CIFAR-10 CNN with and without TTA"
+        description="Evaluate a CNN with and without TTA on CIFAR-10, CIFAR-100, or SVHN"
     )
+    parser.add_argument("--dataset", type=str, default="cifar10", choices=SUPPORTED_DATASETS)
     parser.add_argument(
         "--weights",
         type=str,
-        default="cnn_cifar10.pth",
+        default=None,
         help="Path to trained model weights",
     )
     parser.add_argument(
@@ -76,25 +75,37 @@ def main():
         help="Hidden dimension used by the trained model",
     )
     parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--data-root", type=str, default="data")
+    parser.add_argument("--num-workers", type=int, default=0)
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    spec = get_dataset_spec(args.dataset)
+    weights = args.weights or f"artifacts/cnn_{spec.name}.pth"
     print("Using device:", device)
+    print(f"Dataset: {spec.name} ({spec.num_classes} classes)")
 
-    _, test_loader, _, _ = get_cifar10_loaders(batch_size=args.batch_size)
+    _, test_loader, _, _ = get_data_loaders(
+        dataset_name=args.dataset,
+        batch_size=args.batch_size,
+        root=args.data_root,
+        num_workers=args.num_workers,
+    )
 
-    model = CIFAR10CNN(hidden_dim=args.hidden_dim).to(device)
-    state_dict = torch.load(args.weights, map_location=device)
+    model = CNNClassifier(
+        hidden_dim=args.hidden_dim,
+        num_classes=spec.num_classes,
+        input_channels=spec.input_channels,
+    ).to(device)
+    state_dict = torch.load(weights, map_location=device)
     model.load_state_dict(state_dict)
 
     criterion = nn.CrossEntropyLoss()
 
-    # Baseline evaluation
     start = time.time()
     test_loss, test_acc = evaluate(model, test_loader, criterion, device)
     baseline_time = time.time() - start
 
-    # TTA evaluation
     start = time.time()
     tta_loss, tta_acc = evaluate_tta(model, test_loader, criterion, device)
     tta_time = time.time() - start

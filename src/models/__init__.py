@@ -1,1 +1,1 @@
-from .cnn import CIFAR10CNN
+from .cnn import CNNClassifier, CIFAR10CNN

@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 
 
-class CIFAR10CNN(nn.Module):
-    def __init__(self, hidden_dim=256, num_classes=10):
+class CNNClassifier(nn.Module):
+    def __init__(self, hidden_dim: int = 256, num_classes: int = 10, input_channels: int = 3):
         super().__init__()
 
         self.features = nn.Sequential(
-            nn.Conv2d(3, 32, 3, padding=1),
+            nn.Conv2d(input_channels, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
 
@@ -28,7 +28,7 @@ class CIFAR10CNN(nn.Module):
             nn.Conv2d(64, 128, 3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.MaxPool2d(2)
+            nn.MaxPool2d(2),
         )
 
         self.flatten = nn.Flatten()
@@ -37,20 +37,24 @@ class CIFAR10CNN(nn.Module):
         self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
 
-    def extract_features(self, x):
+    def extract_features(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
         x = self.flatten(x)
         x = self.fc1(x)
         x = self.relu(x)
         return x
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.extract_features(x)
         x = self.dropout(x)
         x = self.fc2(x)
         return x
 
-    def forward_with_features(self, x):
+    def forward_with_features(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         feats = self.extract_features(x)
         logits = self.fc2(self.dropout(feats))
         return logits, feats
+
+
+# Backwards-compatible alias.
+CIFAR10CNN = CNNClassifier

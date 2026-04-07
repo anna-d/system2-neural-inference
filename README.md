@@ -1,6 +1,13 @@
 # neural-network-system2
 
-Cleaned and reorganized CIFAR-10 project for a thesis on baseline neural inference and System 2-inspired extensions.
+Cleaned and reorganized neural-network project for a thesis on baseline classification and System 2-inspired extensions.
+
+## Supported datasets
+
+The codebase now supports:
+- CIFAR-10
+- CIFAR-100
+- SVHN
 
 ## Repository structure
 
@@ -30,25 +37,29 @@ pip install -r requirements.txt
 ## Train baseline CNN
 
 ```bash
-python -m src.training.train_cnn --epochs 20 --output artifacts/cnn_cifar10.pth
+python -m src.training.train_cnn --dataset cifar10 --epochs 20 --output artifacts/cnn_cifar10.pth
+python -m src.training.train_cnn --dataset cifar100 --epochs 20 --output artifacts/cnn_cifar100.pth
+python -m src.training.train_cnn --dataset svhn --epochs 20 --output artifacts/cnn_svhn.pth
 ```
 
 ## Evaluate with TTA
 
 ```bash
-python -m src.evaluation.evaluate_tta --weights artifacts/cnn_cifar10.pth
+python -m src.evaluation.evaluate_tta --dataset cifar10 --weights artifacts/cnn_cifar10.pth
+python -m src.evaluation.evaluate_tta --dataset cifar100 --weights artifacts/cnn_cifar100.pth
+python -m src.evaluation.evaluate_tta --dataset svhn --weights artifacts/cnn_svhn.pth
 ```
 
 ## Save example predictions
 
 ```bash
-python -m src.pipelines.save_examples --weights artifacts/cnn_cifar10.pth
+python -m src.pipelines.save_examples --dataset cifar10 --weights artifacts/cnn_cifar10.pth
 ```
 
 ## Experiments
 
 ```bash
-python experiments/run_experiments.py
-python experiments/run_knn_ncc.py
-python experiments/evaluate_knn_confidence.py --weights artifacts/cnn_cifar10.pth
+python -m experiments.run_experiments --dataset cifar10
+python -m experiments.run_knn_ncc --dataset cifar100
+python -m experiments.evaluate_knn_confidence --dataset svhn --weights artifacts/cnn_svhn.pth
 ```
