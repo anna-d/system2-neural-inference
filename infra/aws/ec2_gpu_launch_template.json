@@ -1,0 +1,46 @@
+{
+  "LaunchTemplateName": "system2-gpu-template",
+  "VersionDescription": "GPU EC2 template for neural-network-system2",
+  "LaunchTemplateData": {
+    "ImageId": "resolve:ssm:/aws/service/deeplearning/ami/x86_64/oss-nvidia-driver-gpu-pytorch-2.10-amazon-linux-2023/latest/ami-id",
+    "InstanceType": "g5.xlarge",
+    "KeyName": "YOUR_KEYPAIR_NAME",
+    "SecurityGroupIds": [
+      "sg-xxxxxxxxxxxxxxxxx"
+    ],
+    "IamInstanceProfile": {
+      "Name": "YOUR_INSTANCE_PROFILE"
+    },
+    "BlockDeviceMappings": [
+      {
+        "DeviceName": "/dev/xvda",
+        "Ebs": {
+          "VolumeSize": 100,
+          "VolumeType": "gp3",
+          "DeleteOnTermination": true,
+          "Encrypted": true
+        }
+      }
+    ],
+    "MetadataOptions": {
+      "HttpTokens": "required",
+      "HttpEndpoint": "enabled"
+    },
+    "TagSpecifications": [
+      {
+        "ResourceType": "instance",
+        "Tags": [
+          { "Key": "Name", "Value": "system2-gpu" },
+          { "Key": "Project", "Value": "neural-network-system2" }
+        ]
+      },
+      {
+        "ResourceType": "volume",
+        "Tags": [
+          { "Key": "Project", "Value": "neural-network-system2" }
+        ]
+      }
+    ],
+    "UserData": "BASE64_ENCODED_USER_DATA_HERE"
+  }
+}
