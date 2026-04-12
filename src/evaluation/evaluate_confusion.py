@@ -8,7 +8,7 @@ import torch
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from torch.utils.data import DataLoader
 
-from src.models.cnn import CNN
+from src.models.cnn import CNNClassifier
 from src.utils.data import get_datasets
 
 
@@ -89,7 +89,7 @@ def main():
     )
 
     num_classes = get_num_classes(args.dataset)
-    model = CNN(num_classes=num_classes, input_channels=3)
+    model = CNNClassifier(num_classes=num_classes, input_channels=3)
     model.load_state_dict(torch.load(args.weights, map_location=device))
     model.to(device)
     model.eval()
