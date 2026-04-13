@@ -1,6 +1,6 @@
 {
   "ImageId": "resolve:ssm:/aws/service/deeplearning/ami/x86_64/oss-nvidia-driver-gpu-pytorch-2.10-amazon-linux-2023/latest/ami-id",
-  "InstanceType": "g5.xlarge",
+  "InstanceType": "g4dn.xlarge",
   "KeyName": "YOUR_KEYPAIR_NAME",
   "SecurityGroupIds": [
     "sg-xxxxxxxxxxxxxxxxx"
