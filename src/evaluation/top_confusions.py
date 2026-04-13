@@ -1,57 +1,69 @@
 import argparse
-import numpy as np
 from pathlib import Path
 
-# CIFAR-10 class names
+import numpy as np
+import torchvision
+
+
 CIFAR10_CLASSES = [
     "airplane", "automobile", "bird", "cat", "deer",
     "dog", "frog", "horse", "ship", "truck"
 ]
 
 
+def get_class_names(dataset: str, data_root: str):
+    if dataset == "cifar10":
+        return CIFAR10_CLASSES
+
+    if dataset == "cifar100":
+        ds = torchvision.datasets.CIFAR100(root=data_root, train=False, download=True)
+        return list(ds.classes)
+
+    if dataset == "svhn":
+        return [str(i) for i in range(10)]
+
+    return [str(i) for i in range(100)]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--matrix", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True, choices=["cifar10", "cifar100", "svhn"])
     parser.add_argument("--top-k", type=int, default=10)
-    parser.add_argument("--dataset", type=str, default="cifar10")
-    parser.add_argument("--output", type=str, default="results/top_confusions.txt")
+    parser.add_argument("--data-root", type=str, default="data")
+    parser.add_argument("--output", type=str, default=None)
     args = parser.parse_args()
 
-    cm = np.load(args.matrix)
-    cm = cm.copy()
-
+    cm = np.load(args.matrix).copy()
     np.fill_diagonal(cm, 0)
+
+    class_names = get_class_names(args.dataset, args.data_root)
 
     pairs = []
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             if i != j:
-                pairs.append((i, j, cm[i, j]))
+                pairs.append((i, j, int(cm[i, j])))
 
     pairs.sort(key=lambda x: x[2], reverse=True)
+    top_pairs = pairs[:args.top_k]
 
-    # class names
-    if args.dataset == "cifar10":
-        class_names = CIFAR10_CLASSES
-    else:
-        class_names = [str(i) for i in range(cm.shape[0])]
+    lines = [f"Top {args.top_k} confused class pairs for {args.dataset}:\n"]
+    for i, j, count in top_pairs:
+        lines.append(f"{class_names[i]} ({i}) -> {class_names[j]} ({j}): {count}")
 
-    output_lines = []
-    output_lines.append(f"Top {args.top_k} confused class pairs:\n")
+    text = "\n".join(lines)
+    print(text)
 
-    for i, j, count in pairs[:args.top_k]:
-        line = f"{class_names[i]} ({i}) -> {class_names[j]} ({j}): {count}"
-        output_lines.append(line)
+    output_path = args.output
+    if output_path is None:
+        output_path = f"results/top_confusions_{args.dataset}.txt"
 
-    # print to terminal
-    print("\n".join(output_lines))
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(text + "\n")
 
-    # save to file
-    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
-        f.write("\n".join(output_lines))
-
-    print(f"\nSaved to {args.output}")
+    print(f"\nSaved to {output_path}")
 
 
 if __name__ == "__main__":
