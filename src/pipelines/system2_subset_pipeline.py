@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument("--expert-weights", type=str, required=True)
     parser.add_argument("--classes", type=int, nargs="+", required=True)
     parser.add_argument("--threshold", type=float, default=0.45)
+    parser.add_argument("--mass-threshold", type=float, default=0.60)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--data-root", type=str, default="data")
     parser.add_argument("--output", type=str, default="results/system2_subset_eval.txt")
@@ -78,11 +79,12 @@ def main():
                 y_true = labels[i].item()
                 baseline_pred = baseline_preds[i].item()
                 confidence = confidences[i].item()
+                subset_mass = baseline_probs[i, subset_classes].sum().item()
 
                 if baseline_pred == y_true:
                     baseline_correct += 1
 
-                if confidence < args.threshold and baseline_pred in subset_set:
+                if confidence < args.threshold and subset_mass > args.mass_threshold:
                     trigger_count += 1
 
                     if y_true in subset_set:
@@ -108,6 +110,7 @@ def main():
         f"Dataset: {args.dataset}",
         f"Subset classes: {subset_classes}",
         f"Threshold: {args.threshold}",
+        f"Mass Threshold: {args.mass_threshold}",
         "",
         f"Baseline Accuracy: {baseline_acc:.4f}",
         f"System2 Accuracy: {system2_acc:.4f}",
