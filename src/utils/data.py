@@ -6,6 +6,7 @@ from typing import Iterable
 
 import torch
 from torch.utils.data import DataLoader
+from torch.utils.data import Subset
 import torchvision
 import torchvision.transforms as transforms
 
@@ -206,3 +207,28 @@ def unnormalize_tensor(images: torch.Tensor, dataset_name: str) -> torch.Tensor:
     mean = torch.tensor(spec.mean, device=images.device, dtype=images.dtype).view(-1, 1, 1)
     std = torch.tensor(spec.std, device=images.device, dtype=images.dtype).view(-1, 1, 1)
     return images * std + mean
+
+
+def get_binary_pair_datasets(dataset_name: str, class_a: int, class_b: int, root: str = "data"):
+    train_dataset, test_dataset = get_datasets(dataset_name=dataset_name, root=root)
+
+    def filter_indices_and_relabel(dataset):
+        if hasattr(dataset, "targets"):
+            labels = dataset.targets
+        elif hasattr(dataset, "labels"):
+            labels = dataset.labels
+        else:
+            raise ValueError("Dataset does not expose targets or labels")
+
+        indices = []
+        for i, y in enumerate(labels):
+            y = int(y)
+            if dataset_name == "svhn":
+                y = y % 10
+            if y == class_a or y == class_b:
+                indices.append(i)
+
+        subset = Subset(dataset, indices)
+        return subset
+
+    return filter_indices_and_relabel(train_dataset), filter_indices_and_relabel(test_dataset)
