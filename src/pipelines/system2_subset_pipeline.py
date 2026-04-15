@@ -11,7 +11,7 @@ from src.utils.data import get_datasets
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, default="cifar10", choices=["cifar10"])
+    parser.add_argument("--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100"])
     parser.add_argument("--baseline-weights", type=str, required=True)
     parser.add_argument("--expert-weights", type=str, required=True)
     parser.add_argument("--classes", type=int, nargs="+", required=True)
@@ -23,13 +23,15 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_models(device, baseline_weights, expert_weights, num_classes):
-    baseline_model = CNNClassifier(num_classes=10, input_channels=3)
+def load_models(device, baseline_weights, expert_weights, dataset, num_subset_classes):
+    num_classes = 100 if dataset == "cifar100" else 10
+
+    baseline_model = CNNClassifier(num_classes=num_classes, input_channels=3)
     baseline_model.load_state_dict(torch.load(baseline_weights, map_location=device))
     baseline_model.to(device)
     baseline_model.eval()
 
-    expert_model = CNNClassifier(num_classes=num_classes, input_channels=3)
+    expert_model = CNNClassifier(num_classes=num_subset_classes, input_channels=3)
     expert_model.load_state_dict(torch.load(expert_weights, map_location=device))
     expert_model.to(device)
     expert_model.eval()
@@ -53,7 +55,8 @@ def main():
         device=device,
         baseline_weights=args.baseline_weights,
         expert_weights=args.expert_weights,
-        num_classes=len(subset_classes),
+        dataset=args.dataset,
+        num_subset_classes=len(subset_classes),
     )
 
     baseline_correct = 0
