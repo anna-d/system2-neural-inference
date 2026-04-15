@@ -232,3 +232,29 @@ def get_binary_pair_datasets(dataset_name: str, class_a: int, class_b: int, root
         return subset
 
     return filter_indices_and_relabel(train_dataset), filter_indices_and_relabel(test_dataset)
+
+
+def get_subset_datasets(dataset_name: str, allowed_classes: list[int], root: str = "data"):
+    train_dataset, test_dataset = get_datasets(dataset_name=dataset_name, root=root)
+
+    def filter_subset(dataset):
+        if hasattr(dataset, "targets"):
+            labels = dataset.targets
+        elif hasattr(dataset, "labels"):
+            labels = dataset.labels
+        else:
+            raise ValueError("Dataset does not expose targets or labels")
+
+        indices = []
+        allowed = set(allowed_classes)
+
+        for i, y in enumerate(labels):
+            y = int(y)
+            if dataset_name == "svhn":
+                y = y % 10
+            if y in allowed:
+                indices.append(i)
+
+        return Subset(dataset, indices)
+
+    return filter_subset(train_dataset), filter_subset(test_dataset)
