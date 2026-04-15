@@ -11,7 +11,7 @@ from src.utils.data import get_datasets
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100"])
+    parser.add_argument("--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100", "svhn"])
     parser.add_argument("--baseline-weights", type=str, required=True)
     parser.add_argument("--pair-weights", type=str, required=True)
     parser.add_argument("--class-a", type=int, required=True)
