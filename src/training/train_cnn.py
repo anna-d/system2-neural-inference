@@ -1,10 +1,12 @@
 import argparse
 import csv
 import json
+import random
 from copy import deepcopy
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -151,8 +153,17 @@ def save_curves(history: list[dict], loss_curve_path: Path, accuracy_curve_path:
     plt.close()
 
 
+def set_global_seed(seed: int) -> None:
+    """Lock every RNG so the run is reproducible (model init, dropout, shuffling, split)."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
 def main():
     args = parse_args()
+    set_global_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     spec = get_dataset_spec(args.dataset)
     output = args.output or f"artifacts/cnn_{spec.name}.pth"
