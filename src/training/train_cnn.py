@@ -11,7 +11,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 
 from src.models import CNNClassifier
-from src.utils.data import SUPPORTED_DATASETS, get_datasets, get_dataset_spec
+from src.utils.data import SUPPORTED_DATASETS, get_datasets, get_dataset_spec, get_train_dataset
 from src.utils.train_utils import evaluate, train_one_epoch
 
 
@@ -66,7 +66,7 @@ def build_train_val_loaders(
     # Two copies of the training dataset so that train keeps augmentation while
     # validation uses evaluation transforms.
     train_dataset_aug, test_dataset = get_datasets(dataset_name=dataset_name, root=root)
-    val_dataset_base, _ = get_datasets(dataset_name=dataset_name, root=root)
+    val_dataset_base = get_train_dataset(dataset_name=dataset_name, root=root, augment=False)
 
     total_train = len(train_dataset_aug)
     val_size = max(1, int(total_train * val_split))

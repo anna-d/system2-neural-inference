@@ -11,7 +11,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset, Subset
 
 from src.models import CNNClassifier
-from src.utils.data import SUPPORTED_DATASETS, get_datasets, get_dataset_spec
+from src.utils.data import SUPPORTED_DATASETS, get_datasets, get_dataset_spec, get_train_dataset
 from src.utils.train_utils import evaluate, train_one_epoch
 
 
@@ -77,8 +77,10 @@ def build_train_val_test_loaders(
     if not 0.0 < val_split < 1.0:
         raise ValueError("--val-split must be between 0 and 1.")
 
+    # train_dataset_aug keeps augmentation (for training); train_dataset_base uses
+    # evaluation transforms so the validation split is not randomly augmented.
     train_dataset_aug, test_dataset_base = get_datasets(dataset_name=dataset_name, root=root)
-    train_dataset_base, _ = get_datasets(dataset_name=dataset_name, root=root)
+    train_dataset_base = get_train_dataset(dataset_name=dataset_name, root=root, augment=False)
 
     pair_train_aug = BinaryPairDataset(train_dataset_aug, class_a, class_b)
     pair_train_base = BinaryPairDataset(train_dataset_base, class_a, class_b)
