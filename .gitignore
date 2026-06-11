@@ -9,3 +9,4 @@ results/*
 data/*
 !data/.gitkeep
 infra/aws/ec2_gpu_launch_template.local.json
+.idea/
