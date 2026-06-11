@@ -61,6 +61,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=5e-4)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--val-split", type=float, default=0.1)
@@ -225,7 +226,7 @@ def main():
     ).to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
     best_val_loss = float("inf")
     best_epoch = 0
