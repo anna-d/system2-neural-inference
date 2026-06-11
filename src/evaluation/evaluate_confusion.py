@@ -63,13 +63,6 @@ def get_class_names(dataset_name: str, test_dataset):
     raise ValueError(f"Unsupported dataset: {dataset_name}")
 
 
-def extract_labels(dataset_name: str, batch):
-    _, labels = batch
-    if dataset_name == "svhn":
-        labels = labels.long() % 10
-    return labels
-
-
 def main():
     args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -101,8 +94,6 @@ def main():
         for images, labels in test_loader:
             images = images.to(device)
             labels = labels.long()
-            if args.dataset == "svhn":
-                labels = labels % 10
 
             outputs = model(images)
             preds = outputs.argmax(dim=1)

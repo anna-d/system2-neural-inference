@@ -252,8 +252,6 @@ def get_binary_pair_datasets(dataset_name: str, class_a: int, class_b: int, root
         indices = []
         for i, y in enumerate(labels):
             y = int(y)
-            if dataset_name == "svhn":
-                y = y % 10
             if y == class_a or y == class_b:
                 indices.append(i)
 
@@ -279,8 +277,6 @@ def get_subset_datasets(dataset_name: str, allowed_classes: list[int], root: str
 
         for i, y in enumerate(labels):
             y = int(y)
-            if dataset_name == "svhn":
-                y = y % 10
             if y in allowed:
                 indices.append(i)
 
