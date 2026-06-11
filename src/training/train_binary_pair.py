@@ -15,17 +15,23 @@ from src.utils.data import SUPPORTED_DATASETS, get_datasets, get_dataset_spec, g
 from src.utils.train_utils import evaluate, train_one_epoch
 
 
+def get_labels(dataset):
+    """Read all labels without loading any image. CIFAR exposes .targets, SVHN .labels."""
+    if hasattr(dataset, "targets"):
+        return dataset.targets
+    if hasattr(dataset, "labels"):
+        return dataset.labels
+    raise ValueError("Dataset exposes neither .targets nor .labels")
+
+
 class BinaryPairDataset(Dataset):
     def __init__(self, base_dataset, class_a: int, class_b: int):
         self.base_dataset = base_dataset
         self.class_a = class_a
         self.class_b = class_b
 
-        self.indices = []
-        for i in range(len(base_dataset)):
-            _, y = base_dataset[i]
-            if y == class_a or y == class_b:
-                self.indices.append(i)
+        labels = get_labels(base_dataset)
+        self.indices = [i for i, y in enumerate(labels) if int(y) in (class_a, class_b)]
 
     def __len__(self):
         return len(self.indices)
