@@ -64,6 +64,17 @@ def main():
     trigger_on_true_pair_cases = 0
     trigger_and_correct = 0
 
+    # Metrics restricted to the triggered subset (where System 2 actually acted)
+    triggered_baseline_correct = 0
+    triggered_system2_correct = 0
+    corrections = 0
+    regressions = 0
+    # Same, restricted to triggered images whose TRUE class is in the pair
+    pair_baseline_correct = 0
+    pair_system2_correct = 0
+    pair_corrections = 0
+    pair_regressions = 0
+
     with torch.no_grad():
         for images, labels in test_loader:
             images = images.to(device)
@@ -98,11 +109,34 @@ def main():
                     if pair_pred_global == y_true:
                         trigger_and_correct += 1
 
+                    baseline_ok = (baseline_pred == y_true)
+                    system2_ok = (pair_pred_global == y_true)
+                    triggered_baseline_correct += int(baseline_ok)
+                    triggered_system2_correct += int(system2_ok)
+                    if (not baseline_ok) and system2_ok:
+                        corrections += 1
+                    elif baseline_ok and (not system2_ok):
+                        regressions += 1
+
+                    if y_true in (args.class_a, args.class_b):
+                        pair_baseline_correct += int(baseline_ok)
+                        pair_system2_correct += int(system2_ok)
+                        if (not baseline_ok) and system2_ok:
+                            pair_corrections += 1
+                        elif baseline_ok and (not system2_ok):
+                            pair_regressions += 1
+
             system2_correct += (final_preds == labels).sum().item()
             total += labels.size(0)
 
     baseline_acc = baseline_correct / total
     system2_acc = system2_correct / total
+
+    def pct(n, d):
+        return f"{(n / d * 100):.2f}%" if d else "n/a"
+
+    net = corrections - regressions
+    pair_net = pair_corrections - pair_regressions
 
     lines = [
         "System 2 Pair Expert Evaluation",
@@ -117,6 +151,22 @@ def main():
         f"System2 Trigger Count: {trigger_count}",
         f"Triggers on True Pair Cases: {trigger_on_true_pair_cases}",
         f"Trigger Correct Predictions: {trigger_and_correct}",
+        "",
+        "On triggered subset (all triggered images):",
+        f"  Triggered total: {trigger_count}",
+        f"  Baseline correct: {triggered_baseline_correct} ({pct(triggered_baseline_correct, trigger_count)})",
+        f"  System2 correct:  {triggered_system2_correct} ({pct(triggered_system2_correct, trigger_count)})",
+        f"  Corrections (wrong->right): {corrections}",
+        f"  Regressions (right->wrong): {regressions}",
+        f"  Net improvement: {net}",
+        "",
+        "On triggered subset with TRUE class in pair:",
+        f"  Triggered (true in pair): {trigger_on_true_pair_cases}",
+        f"  Baseline correct: {pair_baseline_correct} ({pct(pair_baseline_correct, trigger_on_true_pair_cases)})",
+        f"  System2 correct:  {pair_system2_correct} ({pct(pair_system2_correct, trigger_on_true_pair_cases)})",
+        f"  Corrections (wrong->right): {pair_corrections}",
+        f"  Regressions (right->wrong): {pair_regressions}",
+        f"  Net improvement: {pair_net}",
     ]
 
     text = "\n".join(lines)

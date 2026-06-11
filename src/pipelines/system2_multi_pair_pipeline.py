@@ -62,6 +62,18 @@ def main():
     trigger_pair1 = 0
     trigger_pair2 = 0
 
+    # Metrics restricted to the triggered subset
+    triggered_baseline_correct = 0
+    triggered_system2_correct = 0
+    corrections = 0
+    regressions = 0
+    # Same, restricted to triggered images whose TRUE class is in the routed pair
+    pair_true_total = 0
+    pair_true_baseline_correct = 0
+    pair_true_system2_correct = 0
+    pair_true_corrections = 0
+    pair_true_regressions = 0
+
     with torch.no_grad():
         for images, labels in loader:
             images = images.to(device)
@@ -88,6 +100,7 @@ def main():
 
                 low_margin = abs(p1 - p2) < args.threshold
                 pair_set = {top1, top2}
+                routed_pair = None
 
                 # ---- Pair 1 ----
                 if pair_set == {args.pair1_a, args.pair1_b} and low_margin:
@@ -98,6 +111,7 @@ def main():
                     bpred = out.argmax(dim=1).item()
 
                     final_preds[i] = args.pair1_a if bpred == 0 else args.pair1_b
+                    routed_pair = (args.pair1_a, args.pair1_b)
 
                 # ---- Pair 2 ----
                 elif pair_set == {args.pair2_a, args.pair2_b} and low_margin:
@@ -108,12 +122,38 @@ def main():
                     bpred = out.argmax(dim=1).item()
 
                     final_preds[i] = args.pair2_a if bpred == 0 else args.pair2_b
+                    routed_pair = (args.pair2_a, args.pair2_b)
+
+                if routed_pair is not None:
+                    baseline_ok = (pred == y_true)
+                    system2_ok = (final_preds[i].item() == y_true)
+                    triggered_baseline_correct += int(baseline_ok)
+                    triggered_system2_correct += int(system2_ok)
+                    if (not baseline_ok) and system2_ok:
+                        corrections += 1
+                    elif baseline_ok and (not system2_ok):
+                        regressions += 1
+
+                    if y_true in routed_pair:
+                        pair_true_total += 1
+                        pair_true_baseline_correct += int(baseline_ok)
+                        pair_true_system2_correct += int(system2_ok)
+                        if (not baseline_ok) and system2_ok:
+                            pair_true_corrections += 1
+                        elif baseline_ok and (not system2_ok):
+                            pair_true_regressions += 1
 
             system2_correct += (final_preds == labels).sum().item()
             total += labels.size(0)
 
     baseline_acc = baseline_correct / total
     system2_acc = system2_correct / total
+
+    def pct(n, d):
+        return f"{(n / d * 100):.2f}%" if d else "n/a"
+
+    net = corrections - regressions
+    pair_net = pair_true_corrections - pair_true_regressions
 
     lines = [
         "System 2 Multi-Pair Evaluation",
@@ -126,6 +166,22 @@ def main():
         f"Total Triggers: {trigger_total}",
         f"Pair1 Triggers: {trigger_pair1}",
         f"Pair2 Triggers: {trigger_pair2}",
+        "",
+        "On triggered subset (all triggered images):",
+        f"  Triggered total: {trigger_total}",
+        f"  Baseline correct: {triggered_baseline_correct} ({pct(triggered_baseline_correct, trigger_total)})",
+        f"  System2 correct:  {triggered_system2_correct} ({pct(triggered_system2_correct, trigger_total)})",
+        f"  Corrections (wrong->right): {corrections}",
+        f"  Regressions (right->wrong): {regressions}",
+        f"  Net improvement: {net}",
+        "",
+        "On triggered subset with TRUE class in routed pair:",
+        f"  Triggered (true in pair): {pair_true_total}",
+        f"  Baseline correct: {pair_true_baseline_correct} ({pct(pair_true_baseline_correct, pair_true_total)})",
+        f"  System2 correct:  {pair_true_system2_correct} ({pct(pair_true_system2_correct, pair_true_total)})",
+        f"  Corrections (wrong->right): {pair_true_corrections}",
+        f"  Regressions (right->wrong): {pair_true_regressions}",
+        f"  Net improvement: {pair_net}",
     ]
 
     text = "\n".join(lines)
