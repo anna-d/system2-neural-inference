@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument("--dataset", type=str, default="cifar10")
     parser.add_argument("--baseline-weights", type=str, required=True)
     parser.add_argument("--threshold", type=float, default=0.45)
+    parser.add_argument("--hidden-dim", type=int, default=256)
 
     # pair 1
     parser.add_argument("--pair1-weights", type=str, required=True)
@@ -31,8 +32,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_model(weights, num_classes, device):
-    model = CNNClassifier(num_classes=num_classes, input_channels=3)
+def load_model(weights, num_classes, device, hidden_dim):
+    model = CNNClassifier(hidden_dim=hidden_dim, num_classes=num_classes, input_channels=3)
     model.load_state_dict(torch.load(weights, map_location=device))
     model.to(device)
     model.eval()
@@ -47,10 +48,10 @@ def main():
     _, test_dataset = get_datasets(dataset_name=args.dataset, root="data")
     loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
-    baseline = load_model(args.baseline_weights, 10, device)
+    baseline = load_model(args.baseline_weights, 10, device, args.hidden_dim)
 
-    pair1 = load_model(args.pair1_weights, 2, device)
-    pair2 = load_model(args.pair2_weights, 2, device)
+    pair1 = load_model(args.pair1_weights, 2, device, args.hidden_dim)
+    pair2 = load_model(args.pair2_weights, 2, device, args.hidden_dim)
 
     baseline_correct = 0
     system2_correct = 0

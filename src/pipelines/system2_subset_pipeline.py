@@ -17,21 +17,22 @@ def parse_args():
     parser.add_argument("--classes", type=int, nargs="+", required=True)
     parser.add_argument("--threshold", type=float, default=0.45)
     parser.add_argument("--mass-threshold", type=float, default=0.60)
+    parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--data-root", type=str, default="data")
     parser.add_argument("--output", type=str, default="results/system2_subset_eval.txt")
     return parser.parse_args()
 
 
-def load_models(device, baseline_weights, expert_weights, dataset, num_subset_classes):
+def load_models(device, baseline_weights, expert_weights, dataset, num_subset_classes, hidden_dim):
     num_classes = 100 if dataset == "cifar100" else 10
 
-    baseline_model = CNNClassifier(num_classes=num_classes, input_channels=3)
+    baseline_model = CNNClassifier(hidden_dim=hidden_dim, num_classes=num_classes, input_channels=3)
     baseline_model.load_state_dict(torch.load(baseline_weights, map_location=device))
     baseline_model.to(device)
     baseline_model.eval()
 
-    expert_model = CNNClassifier(num_classes=num_subset_classes, input_channels=3)
+    expert_model = CNNClassifier(hidden_dim=hidden_dim, num_classes=num_subset_classes, input_channels=3)
     expert_model.load_state_dict(torch.load(expert_weights, map_location=device))
     expert_model.to(device)
     expert_model.eval()
@@ -57,6 +58,7 @@ def main():
         expert_weights=args.expert_weights,
         dataset=args.dataset,
         num_subset_classes=len(subset_classes),
+        hidden_dim=args.hidden_dim,
     )
 
     baseline_correct = 0
