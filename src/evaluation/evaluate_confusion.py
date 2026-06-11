@@ -9,7 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from torch.utils.data import DataLoader
 
 from src.models.cnn import CNNClassifier
-from src.utils.data import get_datasets
+from src.utils.data import get_class_names, get_datasets, get_dataset_spec
 
 
 def parse_args():
@@ -43,26 +43,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_num_classes(dataset_name: str) -> int:
-    if dataset_name == "cifar10":
-        return 10
-    if dataset_name == "cifar100":
-        return 100
-    if dataset_name == "svhn":
-        return 10
-    raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-
-def get_class_names(dataset_name: str, test_dataset):
-    if dataset_name == "cifar10":
-        return list(test_dataset.classes)
-    if dataset_name == "cifar100":
-        return list(test_dataset.classes)
-    if dataset_name == "svhn":
-        return [str(i) for i in range(10)]
-    raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-
 def main():
     args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -81,7 +61,7 @@ def main():
         num_workers=2,
     )
 
-    num_classes = get_num_classes(args.dataset)
+    num_classes = get_dataset_spec(args.dataset).num_classes
     model = CNNClassifier(num_classes=num_classes, input_channels=3)
     model.load_state_dict(torch.load(args.weights, map_location=device))
     model.to(device)
@@ -107,7 +87,7 @@ def main():
     cm = confusion_matrix(all_labels, all_preds, labels=list(range(num_classes)))
     np.save(Path(args.output_dir) / f"confusion_{args.dataset}.npy", cm)
 
-    class_names = get_class_names(args.dataset, test_dataset)
+    class_names = list(get_class_names(test_dataset, dataset_name=args.dataset))
 
     fig_size = (10, 8) if num_classes <= 10 else (20, 20)
     fig, ax = plt.subplots(figsize=fig_size)

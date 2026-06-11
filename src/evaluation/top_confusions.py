@@ -4,25 +4,21 @@ from pathlib import Path
 import numpy as np
 import torchvision
 
-
-CIFAR10_CLASSES = [
-    "airplane", "automobile", "bird", "cat", "deer",
-    "dog", "frog", "horse", "ship", "truck"
-]
+from src.utils.data import get_class_names as resolve_class_names
 
 
 def get_class_names(dataset: str, data_root: str):
-    if dataset == "cifar10":
-        return CIFAR10_CLASSES
+    """Resolve class names via the central helper in src.utils.data.
 
-    if dataset == "cifar100":
-        ds = torchvision.datasets.CIFAR100(root=data_root, train=False, download=True)
-        return list(ds.classes)
-
-    if dataset == "svhn":
-        return [str(i) for i in range(10)]
-
-    return [str(i) for i in range(100)]
+    CIFAR exposes real class names through the dataset object, so we load it
+    (no transforms needed) and let resolve_class_names read them; SVHN has no
+    names and falls back to the dataset spec (digits 0-9).
+    """
+    if dataset in ("cifar10", "cifar100"):
+        cls = torchvision.datasets.CIFAR10 if dataset == "cifar10" else torchvision.datasets.CIFAR100
+        ds = cls(root=data_root, train=False, download=True)
+        return list(resolve_class_names(ds, dataset_name=dataset))
+    return list(resolve_class_names(None, dataset_name=dataset))
 
 
 def main():
