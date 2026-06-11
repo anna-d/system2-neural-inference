@@ -133,6 +133,35 @@ def get_datasets(dataset_name: str = "cifar10", root: str | Path = "data"):
     return train_dataset, test_dataset
 
 
+def get_train_dataset(dataset_name: str = "cifar10", root: str | Path = "data", augment: bool = True):
+    """Return ONLY the training split.
+
+    augment=True  -> training transforms (with data augmentation), for the train loader.
+    augment=False -> evaluation transforms (no augmentation), for building a clean
+                     validation copy so that validation metrics are not affected by
+                     random augmentation.
+    """
+    dataset_name = dataset_name.lower()
+    root = str(root)
+    transform = build_transforms(dataset_name, train=augment)
+
+    if dataset_name == "cifar10":
+        return torchvision.datasets.CIFAR10(
+            root=root, train=True, download=True, transform=transform
+        )
+    elif dataset_name == "cifar100":
+        return torchvision.datasets.CIFAR100(
+            root=root, train=True, download=True, transform=transform
+        )
+    elif dataset_name == "svhn":
+        return torchvision.datasets.SVHN(
+            root=root, split="train", download=True, transform=transform
+        )
+    else:
+        supported = ", ".join(SUPPORTED_DATASETS)
+        raise ValueError(f"Unsupported dataset '{dataset_name}'. Supported datasets: {supported}")
+
+
 def get_data_loaders(
     dataset_name: str = "cifar10",
     batch_size: int = 128,
