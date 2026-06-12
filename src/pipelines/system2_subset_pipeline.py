@@ -18,6 +18,8 @@ def parse_args():
     parser.add_argument("--threshold", type=float, default=0.45)
     parser.add_argument("--mass-threshold", type=float, default=0.60)
     parser.add_argument("--hidden-dim", type=int, default=256)
+    parser.add_argument("--temperature", type=float, default=1.0,
+                        help="Divide baseline logits by this (calibration temperature) before softmax.")
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--data-root", type=str, default="data")
     parser.add_argument("--output", type=str, default="results/system2_subset_eval.txt")
@@ -75,7 +77,7 @@ def main():
             labels = labels.to(device)
 
             baseline_logits = baseline_model(images)
-            baseline_probs = F.softmax(baseline_logits, dim=1)
+            baseline_probs = F.softmax(baseline_logits / args.temperature, dim=1)
 
             confidences, baseline_preds = baseline_probs.max(dim=1)
             final_preds = baseline_preds.clone()

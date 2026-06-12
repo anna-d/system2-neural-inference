@@ -21,6 +21,10 @@ def parse_args():
     parser.add_argument("--on-reject", type=str, default="abstain", choices=["abstain", "top2"],
                         help="Action when the verifier rejects: abstain (reject option) or switch to top-2.")
     parser.add_argument("--hidden-dim", type=int, default=256)
+    parser.add_argument("--baseline-temperature", type=float, default=1.0,
+                        help="Calibration temperature for the baseline (confidence trigger).")
+    parser.add_argument("--verifier-temperature", type=float, default=1.0,
+                        help="Calibration temperature for the verifier (sigmoid).")
     parser.add_argument("--embed-dim", type=int, default=64)
     parser.add_argument("--head-dim", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=128)
@@ -82,7 +86,7 @@ def main():
             labels = labels.to(device)
 
             logits = baseline(images)
-            probs = F.softmax(logits, dim=1)
+            probs = F.softmax(logits / args.baseline_temperature, dim=1)
             top2_probs, top2_idx = torch.topk(probs, k=2, dim=1)
             confidences = top2_probs[:, 0]
             baseline_preds = top2_idx[:, 0]
@@ -101,7 +105,7 @@ def main():
                 if conf < args.threshold:
                     trigger_count += 1
                     v_logit = verifier(images[i].unsqueeze(0), baseline_preds[i].unsqueeze(0))
-                    v_prob = torch.sigmoid(v_logit).item()
+                    v_prob = torch.sigmoid(v_logit / args.verifier_temperature).item()
                     confirm = v_prob >= args.verify_threshold
 
                     if baseline_ok and confirm:

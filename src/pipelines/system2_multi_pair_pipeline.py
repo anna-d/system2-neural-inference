@@ -15,6 +15,8 @@ def parse_args():
     parser.add_argument("--baseline-weights", type=str, required=True)
     parser.add_argument("--threshold", type=float, default=0.45)
     parser.add_argument("--hidden-dim", type=int, default=256)
+    parser.add_argument("--temperature", type=float, default=1.0,
+                        help="Divide baseline logits by this (calibration temperature) before softmax.")
 
     # pair 1
     parser.add_argument("--pair1-weights", type=str, required=True)
@@ -80,7 +82,7 @@ def main():
             labels = labels.to(device)
 
             logits = baseline(images)
-            probs = F.softmax(logits, dim=1)
+            probs = F.softmax(logits / args.temperature, dim=1)
 
             top2_probs, top2_idx = torch.topk(probs, k=2, dim=1)
             baseline_preds = probs.argmax(dim=1)
