@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 
 from src.models.cnn import CNNClassifier
 from src.utils.data import get_datasets, get_dataset_spec
+from src.utils.selective import budget_threshold
 
 
 def parse_args():
@@ -20,6 +21,8 @@ def parse_args():
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--temperature", type=float, default=1.0,
                         help="Divide baseline logits by this (calibration temperature) before softmax.")
+    parser.add_argument("--budget", type=float, default=None,
+                        help="Coverage budget tau in (0,1]: trigger the most uncertain tau fraction; overrides --threshold.")
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--data-root", type=str, default="data")
     parser.add_argument("--output", type=str, default="results/system2_pair_eval.txt")
@@ -76,6 +79,10 @@ def main():
     pair_system2_correct = 0
     pair_corrections = 0
     pair_regressions = 0
+
+    if args.budget is not None:
+        args.threshold = budget_threshold(baseline_model, test_loader, device, args.budget, "confidence", args.temperature)
+        print(f"Budget {args.budget}: using confidence threshold {args.threshold:.4f}")
 
     with torch.no_grad():
         for images, labels in test_loader:

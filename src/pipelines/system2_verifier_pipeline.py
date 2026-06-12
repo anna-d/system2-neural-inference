@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 
 from src.models import CNNClassifier, Verifier
 from src.utils.data import get_datasets, get_dataset_spec
+from src.utils.selective import budget_threshold
 
 
 def parse_args():
@@ -25,6 +26,8 @@ def parse_args():
                         help="Calibration temperature for the baseline (confidence trigger).")
     parser.add_argument("--verifier-temperature", type=float, default=1.0,
                         help="Calibration temperature for the verifier (sigmoid).")
+    parser.add_argument("--budget", type=float, default=None,
+                        help="Coverage budget tau in (0,1]: run the verifier on the most uncertain tau fraction; overrides --threshold.")
     parser.add_argument("--embed-dim", type=int, default=64)
     parser.add_argument("--head-dim", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=128)
@@ -79,6 +82,10 @@ def main():
     system2_correct = 0          # for top2 mode: accuracy over all images
     corrections = 0              # triggered: wrong -> right (top2 mode)
     regressions = 0              # triggered: right -> wrong (top2 mode)
+
+    if args.budget is not None:
+        args.threshold = budget_threshold(baseline, test_loader, device, args.budget, "confidence", args.baseline_temperature)
+        print(f"Budget {args.budget}: using confidence threshold {args.threshold:.4f}")
 
     with torch.no_grad():
         for images, labels in test_loader:
