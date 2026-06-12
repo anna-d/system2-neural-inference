@@ -73,6 +73,12 @@ def main():
     verifier_rejected = 0      # V said "wrong" -> expert ran
     verifier_confirmed = 0     # V said "ok"   -> kept baseline
 
+    # Verifier-gate quality on the triggered subset (did it send the right cases to the expert?)
+    gate_tp = 0  # baseline wrong & verifier rejected (correctly sent to expert)
+    gate_fp = 0  # baseline right & verifier rejected (sent unnecessarily)
+    gate_fn = 0  # baseline wrong & verifier confirmed (missed error)
+    gate_tn = 0  # baseline right & verifier confirmed (correctly kept)
+
     # On the triggered subset (the chain's net effect comes only from expert calls)
     triggered_baseline_correct = 0
     triggered_system2_correct = 0
@@ -107,8 +113,10 @@ def main():
                     # Verifier gate: only call the expert if the verifier rejects the prediction.
                     v_logit = verifier(images[i].unsqueeze(0), baseline_preds[i].unsqueeze(0))
                     v_prob = torch.sigmoid(v_logit / args.verifier_temperature).item()
+                    confirm = v_prob >= args.verify_threshold
+                    baseline_ok = (baseline_pred == y_true)
 
-                    if v_prob >= args.verify_threshold:
+                    if confirm:
                         verifier_confirmed += 1
                         # keep baseline_pred (final_preds already equals it)
                     else:
@@ -118,7 +126,16 @@ def main():
                         pair_pred_global = args.class_a if pair_pred_local == 0 else args.class_b
                         final_preds[i] = pair_pred_global
 
-                    baseline_ok = (baseline_pred == y_true)
+                    # Gate quality (reject = sent to expert)
+                    if (not baseline_ok) and (not confirm):
+                        gate_tp += 1
+                    elif baseline_ok and (not confirm):
+                        gate_fp += 1
+                    elif (not baseline_ok) and confirm:
+                        gate_fn += 1
+                    else:
+                        gate_tn += 1
+
                     system2_ok = (final_preds[i].item() == y_true)
                     triggered_baseline_correct += int(baseline_ok)
                     triggered_system2_correct += int(system2_ok)
@@ -151,6 +168,15 @@ def main():
         f"Triggered (confidence + pred in pair): {trigger_count}",
         f"  Verifier rejected -> expert ran: {verifier_rejected}",
         f"  Verifier confirmed -> kept baseline: {verifier_confirmed}",
+        "",
+        "Verifier-gate quality on triggered subset (reject = sent to expert):",
+        f"  Correctly sent (baseline wrong & rejected, TP): {gate_tp}",
+        f"  Sent unnecessarily (baseline right & rejected, FP): {gate_fp}",
+        f"  Missed errors (baseline wrong & confirmed, FN): {gate_fn}",
+        f"  Correctly kept (baseline right & confirmed, TN): {gate_tn}",
+        f"  Error-detection recall:    {pct(gate_tp, gate_tp + gate_fn)}",
+        f"  Error-detection precision: {pct(gate_tp, gate_tp + gate_fp)}",
+        f"  False-rejection rate:      {pct(gate_fp, gate_fp + gate_tn)}",
         "",
         "On triggered subset:",
         f"  Baseline correct: {triggered_baseline_correct} ({pct(triggered_baseline_correct, trigger_count)})",
