@@ -17,6 +17,7 @@ def budget_threshold(model, loader, device, budget, mode="confidence", temperatu
 
     mode='confidence': score = max softmax probability
     mode='margin':     score = top1 - top2 softmax probability
+    mode='entropy':    score = entropy of the softmax distribution (higher = more uncertain)
     """
     if not 0.0 < budget <= 1.0:
         raise ValueError("--budget must be in (0, 1].")
@@ -30,9 +31,14 @@ def budget_threshold(model, loader, device, budget, mode="confidence", temperatu
         elif mode == "margin":
             top2 = probs.topk(2, dim=1).values
             s = top2[:, 0] - top2[:, 1]
+        elif mode == "entropy":
+            s = -(probs * torch.log(probs + 1e-12)).sum(dim=1)
         else:
             raise ValueError(f"Unknown mode: {mode}")
         scores.append(s.cpu())
 
     scores = torch.cat(scores)
-    return float(torch.quantile(scores, budget).item())
+    # confidence/margin: lower = more uncertain, trigger when score < threshold -> tau-quantile.
+    # entropy: higher = more uncertain, trigger when score > threshold -> (1 - tau)-quantile.
+    q = (1.0 - budget) if mode == "entropy" else budget
+    return float(torch.quantile(scores, q).item())

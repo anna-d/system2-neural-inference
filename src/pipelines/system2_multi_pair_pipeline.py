@@ -15,11 +15,13 @@ def parse_args():
     parser.add_argument("--dataset", type=str, default="cifar10")
     parser.add_argument("--baseline-weights", type=str, required=True)
     parser.add_argument("--threshold", type=float, default=0.45)
+    parser.add_argument("--trigger", type=str, default="margin", choices=["margin", "entropy"],
+                        help="Uncertainty trigger: margin (top1-top2 < threshold) or entropy (H(p) > threshold).")
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--temperature", type=float, default=1.0,
                         help="Divide baseline logits by this (calibration temperature) before softmax.")
     parser.add_argument("--budget", type=float, default=None,
-                        help="Coverage budget tau in (0,1]: trigger the most uncertain tau fraction (by margin); overrides --threshold.")
+                        help="Coverage budget tau in (0,1]: trigger the most uncertain tau fraction (by --trigger score); overrides --threshold.")
 
     # pair 1
     parser.add_argument("--pair1-weights", type=str, required=True)
@@ -80,8 +82,8 @@ def main():
     pair_true_regressions = 0
 
     if args.budget is not None:
-        args.threshold = budget_threshold(baseline, loader, device, args.budget, "margin", args.temperature)
-        print(f"Budget {args.budget}: using margin threshold {args.threshold:.4f}")
+        args.threshold = budget_threshold(baseline, loader, device, args.budget, args.trigger, args.temperature)
+        print(f"Budget {args.budget}: using {args.trigger} threshold {args.threshold:.4f}")
 
     with torch.no_grad():
         for images, labels in loader:
@@ -94,6 +96,7 @@ def main():
             top2_probs, top2_idx = torch.topk(probs, k=2, dim=1)
             baseline_preds = probs.argmax(dim=1)
             final_preds = baseline_preds.clone()
+            entropies = -(probs * torch.log(probs + 1e-12)).sum(dim=1)
 
             for i in range(images.size(0)):
                 y_true = labels[i].item()
@@ -107,12 +110,15 @@ def main():
                 p1 = top2_probs[i, 0].item()
                 p2 = top2_probs[i, 1].item()
 
-                low_margin = abs(p1 - p2) < args.threshold
+                if args.trigger == "margin":
+                    uncertain = abs(p1 - p2) < args.threshold
+                else:  # entropy
+                    uncertain = entropies[i].item() > args.threshold
                 pair_set = {top1, top2}
                 routed_pair = None
 
                 # ---- Pair 1 ----
-                if pair_set == {args.pair1_a, args.pair1_b} and low_margin:
+                if pair_set == {args.pair1_a, args.pair1_b} and uncertain:
                     trigger_total += 1
                     trigger_pair1 += 1
 
@@ -123,7 +129,7 @@ def main():
                     routed_pair = (args.pair1_a, args.pair1_b)
 
                 # ---- Pair 2 ----
-                elif pair_set == {args.pair2_a, args.pair2_b} and low_margin:
+                elif pair_set == {args.pair2_a, args.pair2_b} and uncertain:
                     trigger_total += 1
                     trigger_pair2 += 1
 
