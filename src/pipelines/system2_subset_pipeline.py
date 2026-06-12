@@ -74,6 +74,17 @@ def main():
     trigger_on_subset_cases = 0
     trigger_and_correct = 0
 
+    # Metrics restricted to the triggered subset (where System 2 acted)
+    triggered_baseline_correct = 0
+    triggered_system2_correct = 0
+    corrections = 0
+    regressions = 0
+    # Same, restricted to triggered images whose TRUE class is in the subset
+    sub_baseline_correct = 0
+    sub_system2_correct = 0
+    sub_corrections = 0
+    sub_regressions = 0
+
     if args.budget is not None:
         args.threshold = budget_threshold(baseline_model, test_loader, device, args.budget, "confidence", args.temperature)
         print(f"Budget {args.budget}: using confidence threshold {args.threshold:.4f}")
@@ -113,11 +124,34 @@ def main():
                     if expert_pred_global == y_true:
                         trigger_and_correct += 1
 
+                    baseline_ok = (baseline_pred == y_true)
+                    system2_ok = (expert_pred_global == y_true)
+                    triggered_baseline_correct += int(baseline_ok)
+                    triggered_system2_correct += int(system2_ok)
+                    if (not baseline_ok) and system2_ok:
+                        corrections += 1
+                    elif baseline_ok and (not system2_ok):
+                        regressions += 1
+
+                    if y_true in subset_set:
+                        sub_baseline_correct += int(baseline_ok)
+                        sub_system2_correct += int(system2_ok)
+                        if (not baseline_ok) and system2_ok:
+                            sub_corrections += 1
+                        elif baseline_ok and (not system2_ok):
+                            sub_regressions += 1
+
             system2_correct += (final_preds == labels).sum().item()
             total += labels.size(0)
 
     baseline_acc = baseline_correct / total
     system2_acc = system2_correct / total
+
+    def pct(n, d):
+        return f"{(n / d * 100):.2f}%" if d else "n/a"
+
+    net = corrections - regressions
+    sub_net = sub_corrections - sub_regressions
 
     lines = [
         "System 2 Subset Expert Evaluation",
@@ -133,6 +167,22 @@ def main():
         f"System2 Trigger Count: {trigger_count}",
         f"Triggers on True Subset Cases: {trigger_on_subset_cases}",
         f"Trigger Correct Predictions: {trigger_and_correct}",
+        "",
+        "On triggered subset (all triggered images):",
+        f"  Triggered total: {trigger_count}",
+        f"  Baseline correct: {triggered_baseline_correct} ({pct(triggered_baseline_correct, trigger_count)})",
+        f"  System2 correct:  {triggered_system2_correct} ({pct(triggered_system2_correct, trigger_count)})",
+        f"  Corrections (wrong->right): {corrections}",
+        f"  Regressions (right->wrong): {regressions}",
+        f"  Net improvement: {net}",
+        "",
+        "On triggered subset with TRUE class in subset:",
+        f"  Triggered (true in subset): {trigger_on_subset_cases}",
+        f"  Baseline correct: {sub_baseline_correct} ({pct(sub_baseline_correct, trigger_on_subset_cases)})",
+        f"  System2 correct:  {sub_system2_correct} ({pct(sub_system2_correct, trigger_on_subset_cases)})",
+        f"  Corrections (wrong->right): {sub_corrections}",
+        f"  Regressions (right->wrong): {sub_regressions}",
+        f"  Net improvement: {sub_net}",
     ]
 
     text = "\n".join(lines)
